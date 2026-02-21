@@ -2,25 +2,22 @@
   "name": "congress-viz",
   "version": "1.0.0",
   "description": "Congressional co-sponsorship visualization",
-  "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "setup-db": "node setup-db.js",
-    "dev": "vite",
-    "build": "vite build"
+    "dev": "wrangler pages dev --compatibility-date=2024-01-01",
+    "build": "vite build",
+    "deploy": "vite build && wrangler pages deploy dist",
+    "db:execute": "wrangler d1 execute DB --file=./schema.sql",
+    "db:execute:remote": "wrangler d1 execute DB --remote --file=./schema.sql"
   },
   "dependencies": {
     "@tensorflow/tfjs": "^4.17.0",
     "@tensorflow/tfjs-backend-webgpu": "^4.22.0",
-    "better-sqlite3": "^11.0.0",
-    "compression": "^1.8.1",
-    "cors": "^2.8.5",
     "d3": "^7.8.5",
-    "express": "^4.18.2",
     "ml-matrix": "^6.12.1",
     "nouislider": "^15.8.1"
   },
   "devDependencies": {
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "wrangler": "^3.0.0"
   }
 }
