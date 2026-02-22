@@ -832,7 +832,7 @@ function setupSearchBar(points, setSelection) {
     }
 
     const matches = points
-      .filter(p => p.name.toLowerCase().includes(query))
+      .filter(p => p.name?.toLowerCase().includes(query))
       .slice(0, 10);
 
     dropdown.selectAll("*").remove();
