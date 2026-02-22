@@ -47,15 +47,24 @@ export async function onRequestGet({ request, env }) {
       bioidSet.add(row.bioid_1);
       bioidSet.add(row.bioid_2);
     }
-    const congress = dateToCongressNumber(end_date);
+
+    const congresses = [...new Set([dateToCongressNumber(start_date), dateToCongressNumber(end_date)])];
+    const congressPlaceholders = congresses.map(() => '?').join(',');
 
     // Fetch all members for this congress (~435 rows max), filter in JS
     // to avoid D1's 100-parameter limit on IN (?, ?, ...) clauses
     const { results: allMembers } = await env.DB.prepare(`
-      SELECT DISTINCT bioid, name, party, state, district
-      FROM house_members WHERE congress = ?
-    `).bind(congress).all();
-    const members = allMembers.filter(m => bioidSet.has(m.bioid));
+      SELECT bioid, name, party, state, district, congress
+      FROM house_members WHERE congress IN (${congressPlaceholders})
+    `).bind(...congresses).all();
+    const latestByBioid = new Map();
+    for (const m of allMembers) {
+      if (!bioidSet.has(m.bioid)) continue;
+      const existing = latestByBioid.get(m.bioid);
+      if (!existing || m.congress > existing.congress) latestByBioid.set(m.bioid, m);
+    }
+    const members = [...latestByBioid.values()].map(({ congress: _, ...rest }) => rest);
+
 
     const { results: sponsorships } = await env.DB.prepare(`
       SELECT bill_id, bioid, date, spon
