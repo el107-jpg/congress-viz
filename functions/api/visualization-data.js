@@ -31,8 +31,8 @@ export async function onRequestGet({ request, env }) {
       )
       SELECT pc.bioid_1, pc.bioid_2, pc.count
       FROM pair_counts pc
-      WHERE pc.bioid_1 IN (SELECT bioid FROM bioid_totals)
-        AND pc.bioid_2 IN (SELECT bioid FROM bioid_totals)
+      INNER JOIN bioid_totals bt1 ON pc.bioid_1 = bt1.bioid
+      INNER JOIN bioid_totals bt2 ON pc.bioid_2 = bt2.bioid
     `).bind(start_date, end_date, MIN_COOCCURRENCES).all();
 
     // Collect unique bioids from the filtered matrix
