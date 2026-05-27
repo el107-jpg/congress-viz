@@ -22,20 +22,32 @@ async function runUpdate(env, devLimit = null) {
   const bills = await fetchAllBills(env, congress);
   console.log(`Fetched ${bills.length} bills for congress ${congress}`);
 
-  // Skip bills already fully processed today
   let pending = await filterUnsynced(env, bills, today);
   if (devLimit) pending = pending.slice(0, devLimit);
   console.log(`${pending.length} bills need processing (${bills.length - pending.length} already synced today)`);
 
+  let processed = 0;
   for (const billSummary of pending) {
     try {
       await processBill(env, billSummary, congress, today);
+      processed++;
     } catch (err) {
       console.error(`Failed ${billSummary.type} ${billSummary.number}:`, err.message);
     }
   }
 
-  await computeCoOccurrences(env, congress);
+  const remaining = await filterUnsynced(env, bills, today);
+
+  if (remaining.length > 0 && processed > 0 && env.WORKER_URL) {
+    // Made progress but still have bills left — trigger another run to continue
+    console.log(`${remaining.length} bills remaining, triggering continuation...`);
+    await fetch(env.WORKER_URL, {
+      headers: { Authorization: `Bearer ${env.TRIGGER_SECRET}` }
+    }).catch(err => console.error('Self-invoke failed:', err.message));
+  } else {
+    // All done (or no progress made) — compute co-occurrences
+    await computeCoOccurrences(env, congress);
+  }
 }
 
 // Returns only bills that haven't been synced today yet
