@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Congressional co-sponsorship visualization",
   "scripts": {
-    "dev": "wrangler pages dev --compatibility-date=2024-01-01",
+    "dev": "wrangler pages dev dist --compatibility-date=2024-01-01",
     "build": "vite build",
     "deploy": "vite build && wrangler pages deploy dist",
     "db:execute": "wrangler d1 execute DB --file=./schema.sql",

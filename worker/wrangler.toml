@@ -1,0 +1,11 @@
+name = "daily-updater"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "congress-db"
+database_id = "ce9cd156-8e89-465e-b7f4-e084eca093cf"   # same ID as your Pages config
+
+[triggers]
+crons = ["0 6 * * *"]   # runs daily at 6am UTC
