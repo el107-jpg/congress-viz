@@ -1245,53 +1245,30 @@ async function runVisualization(startDate, endDate, previouspositions, signal) {
   return new Map(points.map(p => [p.bioid, { x: p.x, y: p.y }]));
 }
 
-// Generate snap points: every two weeks, but skip Nov-Feb only around odd-year Jan 3rd dates
+// Snap points: Jan 3 of each odd year (one per congress)
 function generateSnapDates() {
   const dates = [];
-  const twoWeeks = 14 * 24 * 60 * 60 * 1000;
-
-  // Add January 3rd for odd years (congress start dates)
   for (let year = 2009; year <= 2025; year += 2) {
     dates.push(new Date(`${year}-01-03`).getTime());
   }
-
-  // Add every two weeks from March through October for ALL years
-  for (let year = 2009; year <= 2025; year++) {
-    let current = new Date(`${year}-03-01`).getTime();
-    const octEnd = new Date(`${year}-10-31`).getTime();
-
-    while (current <= octEnd) {
-      dates.push(current);
-      current += twoWeeks;
-    }
-  }
-
-  // Add Nov-Feb snaps only when next January is EVEN (no Jan 3 congress start)
-  for (let year = 2009; year <= 2024; year++) {
-    const nextYear = year + 1;
-    // Skip if next January has a congress start (odd year)
-    if (nextYear % 2 === 1) continue;
-
-    // Add Nov-Dec of current year
-    let current = new Date(`${year}-11-01`).getTime();
-    const decEnd = new Date(`${year}-12-31`).getTime();
-    while (current <= decEnd) {
-      dates.push(current);
-      current += twoWeeks;
-    }
-
-    // Add Jan-Feb of next year
-    current = new Date(`${nextYear}-01-01`).getTime();
-    const febEnd = new Date(`${nextYear}-02-28`).getTime();
-    while (current <= febEnd) {
-      dates.push(current);
-      current += twoWeeks;
-    }
-  }
-
-  // Sort chronologically
-  dates.sort((a, b) => a - b);
   return dates;
+}
+
+function ordinalSuffix(n) {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return 'th';
+  return ['th', 'st', 'nd', 'rd', 'th'][Math.min(n % 10, 4)];
+}
+
+function congressFromTs(ts) {
+  const year = new Date(Number(ts)).getFullYear();
+  return (year - 1787) / 2;
+}
+
+function formatSliderLabel(ts) {
+  const n = congressFromTs(ts);
+  const startYear = new Date(Number(ts)).getFullYear();
+  return `${n}${ordinalSuffix(n)} Congress  ·  Jan ${startYear} – Jan ${startYear + 2}`;
 }
 
 const SNAP_DATES = generateSnapDates();
@@ -1314,7 +1291,7 @@ function buildSnapRange(snapDates) {
   return range;
 }
 
-// Create controls UI with dual-handle slider
+// Create controls UI with single-handle congress slider
 function createControls() {
   const controls = d3.select("#visualization-area")
     .insert("div", "#chart")
@@ -1322,7 +1299,7 @@ function createControls() {
     .style("margin", "20px")
     .style("font-family", "sans-serif");
 
-  // Date range label
+  // Congress label
   controls.append("div")
     .attr("id", "date-label")
     .style("margin-bottom", "10px")
@@ -1340,33 +1317,16 @@ function createControls() {
     .style("margin-left", "20px")
     .style("color", "#666");
 
-  // Initialize noUiSlider
+  // Initialize noUiSlider — single handle, one snap per congress
   const slider = document.getElementById("date-slider");
-  const startTs = new Date('2017-01-03').getTime();
-  const endTs = new Date('2019-01-03').getTime();
+  const initialTs = new Date('2023-01-03').getTime();
 
   noUiSlider.create(slider, {
-    start: [startTs, endTs],
-    connect: true,
+    start: [initialTs],
     snap: true,
     range: buildSnapRange(SNAP_DATES),
-    tooltips: [
-      { to: timestampToDate },
-      { to: timestampToDate }
-    ]
+    tooltips: false
   });
-
-  // Move tooltips below the handle and make them smaller
-  const tooltipStyle = document.createElement("style");
-  tooltipStyle.textContent = `
-    .noUi-tooltip {
-      bottom: auto !important;
-      top: 120% !important;
-      font-size: 11px;
-      padding: 2px 6px;
-    }
-  `;
-  document.head.appendChild(tooltipStyle);
 
   // Clear debounce timer when user starts interacting
   slider.noUiSlider.on("start", () => {
@@ -1375,9 +1335,7 @@ function createControls() {
 
   // Update label on any slider movement
   slider.noUiSlider.on("update", (values) => {
-    const start = timestampToDate(values[0]);
-    const end = timestampToDate(values[1]);
-    d3.select("#date-label").text(`Date Range: ${start} to ${end}`);
+    d3.select("#date-label").text(formatSliderLabel(values[0]));
 
     // Reset debounce - only fires after slider stops moving
     clearTimeout(debounceTimer);
@@ -1401,9 +1359,11 @@ async function updateVisualization() {
   currentAbortController = new AbortController();
   const signal = currentAbortController.signal;
 
-  const values = sliderElement.noUiSlider.get();
-  const startDate = timestampToDate(values[0]);
-  const endDate = timestampToDate(values[1]);
+  const startTs = Number(sliderElement.noUiSlider.get());
+  const startDate = timestampToDate(startTs);
+  // End date = Jan 2 two years later (last day of this congress)
+  const startYear = new Date(startTs).getFullYear();
+  const endDate = `${startYear + 2}-01-02`;
 
   d3.select("#status").text("Loading...").style("color", "#666");
 
